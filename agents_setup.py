@@ -49,7 +49,9 @@ group type, group size, per-person budget and interests you are given:
 - Local transport options and typical fares
 - Travel advisories, closures, scams, safety or entry notes
 - Options that suit the group type (family: kid-friendly, relaxed; friends: social, adventurous)
-Be detailed and specific: names, prices, timings. Do not write an itinerary yourself.""",
+Be detailed and specific: names, prices, timings. Give prices in Indian Rupees (₹): if a source
+uses another currency, convert approximately and note the local price in brackets.
+Do not write an itinerary yourself.""",
     tools=[WebSearchTool()],
 )
 
@@ -101,9 +103,9 @@ LEVEL OF DETAIL: the traveller wants a rich, detailed plan. Do NOT be brief.
 - food_suggestions: named restaurants, street-food spots or dishes for breakfast, lunch and
   dinner, with approximate price per person.
 - getting_around: transport between the day's stops, with approximate fares.
-- estimated_cost_per_person: itemised estimate (entries, food, local transport) in the local
-  currency, compared against the stated budget per person. Exclude flights and hotels unless
-  the traveller gave them.
+- estimated_cost_per_person: itemised estimate (entries, food, local transport) in ₹ (convert
+  local prices, see CURRENCY below), ending with one clear day total in ₹, compared against the
+  stated budget per person. Exclude flights and hotels unless the traveller gave them.
 - weather_note: specific to that day, and how it shaped the plan.
 - tips: practical advice (timings to avoid crowds, dress codes, scams, safety).
 - Put outdoor activities on better-weather days and indoor ones on rainy/hot days; group
@@ -114,6 +116,11 @@ GROUP TYPE:
   convenient transport, avoid very late nights.
 - Friends: more active and social, adventure, nightlife and group experiences, shared
   transport/cost ideas, flexible evenings.
+
+CURRENCY: all money amounts must be in Indian Rupees (₹). The traveller's budget is in ₹
+unless they explicitly name another currency (a bare number like 20000 means ₹20,000). If you
+find prices in a foreign currency, convert to approximate ₹ and say it is approximate; you may
+show the local price in brackets, e.g. "₹1,500 (about 70 AED)". Never silently switch currency.
 
 BUDGET: the traveller's budget is PER PERSON for the ENTIRE trip, NOT per part. If you are
 planning only some days, you get a proportional share of the whole-trip budget (e.g. 5 of 12
@@ -213,6 +220,7 @@ Do this:
    traveller's budget text says it excludes flights/hotels, mention that those sit outside it.
 4. Finish with 2-4 short practical suggestions on where to save or where it is worth splurging.
 
-Use only the numbers provided; do not invent costs. If something is unclear, say so. Use the
-currency used in the estimates. Plain text only, no tables.""",
+Use only the numbers provided; do not invent costs. If something is unclear, say so. Amounts are
+in Indian Rupees (₹) unless the traveller explicitly named another currency; write them with the
+₹ sign and Indian-style grouping where natural (e.g. ₹1,20,000). Plain text only, no tables.""",
 )
