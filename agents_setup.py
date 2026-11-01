@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from models import Itinerary
 from weather_tools import get_climate_history, get_forecast
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-5.4-nano"
 # Detailed itineraries read noticeably better on a stronger model. Set
 # PLANNER_MODEL=gpt-4o in .env to try it (costs more).
 PLANNER_MODEL = os.getenv("PLANNER_MODEL", MODEL)
