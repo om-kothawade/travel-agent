@@ -199,10 +199,12 @@ with gr.Blocks(title="AI Travel Planner") as demo:
     with gr.Row():
         destination = gr.Textbox(label="Destination", placeholder="Jaipur")
     with gr.Row():
+        # min_width makes the two pickers stack on narrow (phone) screens instead of
+        # squeezing side by side and clipping the calendar icon.
         start = gr.DateTime(label="Start date", include_time=False, type="string",
-                            info="Click the calendar icon to pick a date")
+                            min_width=280)
         end = gr.DateTime(label="End date", include_time=False, type="string",
-                          info="Last day of the trip")
+                          min_width=280)
     with gr.Row():
         people = gr.Number(label="Number of people", value=2, precision=0, minimum=1, maximum=MAX_PEOPLE)
         group_type = gr.Radio(["Family", "Friends"], value="Family", label="Travelling as")
