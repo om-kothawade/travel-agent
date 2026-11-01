@@ -1,12 +1,10 @@
-"""Gradio UI. The itinerary is shown on the page (and can be downloaded).
+"""Gradio UI. The itinerary is shown on the page and can be downloaded as a PDF.
 No email, no external delivery.
 
 Run locally:  python app.py
 """
 import asyncio
 import os
-import re
-import tempfile
 import time
 from datetime import date, datetime
 from html import escape
@@ -19,6 +17,7 @@ load_dotenv()  # locally reads .env; on hosts, env vars are already set
 from agents import InputGuardrailTripwireTriggered, MaxTurnsExceeded  # noqa: E402
 
 from formatting import to_markdown  # noqa: E402
+from pdf_export import save_pdf  # noqa: E402
 from planning import CHUNK_DAYS, TripRequest, plan_trip  # noqa: E402
 
 # No day limit by default. To protect your OpenAI bill on a public site, set e.g. 30.
@@ -91,14 +90,6 @@ def _parse_dates(start: str, end: str):
     return s, e
 
 
-def _save_markdown(destination: str, md: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", destination).strip("_")[:40] or "trip"
-    path = os.path.join(tempfile.mkdtemp(), f"itinerary_{safe}.md")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(md)
-    return path
-
-
 def _out(status="", md="", file_path=None, popup=""):
     """One tuple for all outputs: (status, itinerary, download file, popup)."""
     file_update = (gr.update(value=file_path, visible=True) if file_path
@@ -153,8 +144,12 @@ async def plan(destination, start, end, people, group_type, budget, interests,
         itinerary = await task  # re-raises any error from the planner
 
         md = to_markdown(itinerary)
-        yield _out("✅ Your itinerary is ready! You can also download it below.",
-                   md, _save_markdown(req.destination, md))
+        try:
+            pdf_path = save_pdf(itinerary)
+            yield _out("✅ Your itinerary is ready! You can also download it as a PDF below.",
+                       md, pdf_path)
+        except Exception as pdf_err:  # still show the itinerary if PDF creation fails
+            yield _out(f"✅ Your itinerary is ready, but the PDF couldn't be created ({pdf_err}).", md)
 
     except ValueError as ve:
         yield _out(f"❌ {ve}")
@@ -194,7 +189,7 @@ with gr.Blocks(title="AI Travel Planner") as demo:
     btn = gr.Button("Plan my trip", variant="primary")
     status = gr.Markdown()
     itinerary_md = gr.Markdown()
-    download = gr.File(label="Download itinerary (.md)", visible=False)
+    download = gr.File(label="Download itinerary (PDF)", visible=False)
     popup = gr.HTML(elem_id="overlay")  # fixed-position popup; empty when idle
 
     btn.click(

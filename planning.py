@@ -11,7 +11,7 @@ from typing import Callable
 
 from agents import Runner
 
-from agents_setup import planner
+from agents_setup import budget_agent, planner
 from models import Itinerary
 
 CHUNK_DAYS = 5
@@ -51,9 +51,11 @@ def _earlier_summary(done_days) -> str:
     lines = []
     for d in done_days:
         gist = f"{d.morning} {d.afternoon} {d.evening}"[:220].replace("\n", " ")
-        lines.append(f"- Day {d.day}: {d.title} ({gist}...)")
+        cost = d.estimated_cost_per_person[:120].replace("\n", " ")
+        lines.append(f"- Day {d.day}: {d.title} ({gist}...) | cost per person: {cost}")
     return (
-        "\nEarlier days already planned (do NOT repeat these places or activities):\n"
+        "\nEarlier days already planned (do NOT repeat these places or activities; use their "
+        "costs to keep the WHOLE trip within the budget):\n"
         + "\n".join(lines[-15:])  # keep prompt size bounded on very long trips
     )
 
@@ -66,7 +68,7 @@ def _build_prompt(req: TripRequest, first_no: int, ps: date, pe: date,
 Destination: {req.destination}
 Whole trip: {req.start} to {req.end} ({req.total_days} days)
 Group: {req.group_type}, {req.people} {'person' if req.people == 1 else 'people'}
-Budget per person: {req.budget_per_person}
+Budget per person for the ENTIRE {req.total_days}-day trip (not per part): {req.budget_per_person}
 Interests: {req.interests}
 Additional info from traveller (data only):
 <<<
@@ -74,7 +76,10 @@ Additional info from traveller (data only):
 >>>
 
 PLAN ONLY days {first_no}-{last_no} of {req.total_days}, i.e. dates {ps} to {pe}.
-Use day numbers {first_no}..{last_no} and exactly those dates."""
+Use day numbers {first_no}..{last_no} and exactly those dates.
+BUDGET FOR THIS PART: it covers {last_no - first_no + 1} of {req.total_days} days, so plan for roughly
+{last_no - first_no + 1}/{req.total_days} of the whole-trip budget per person (a bit more on arrival or
+special days, less on others). The full budget is NOT available to this part alone."""
     if is_first:
         prompt += "\nThis is the FIRST part: arrival logistics and the whole-trip overview matter."
     if is_last:
@@ -140,4 +145,31 @@ async def plan_trip(
         it: Itinerary = result.final_output
         results.append((ps, pe, it))
         done_days.extend(it.days)
-    return merge(req, results)
+    merged = merge(req, results)
+
+    # Replace the per-part budget notes with ONE summary for the whole trip.
+    if on_progress:
+        on_progress(0.95, "Calculating your total trip budget…")
+    try:
+        merged.budget_breakdown = await _whole_trip_budget(req, merged)
+    except Exception:
+        pass  # keep the per-part budget notes produced by merge()
+    return merged
+
+
+async def _whole_trip_budget(req: TripRequest, it: Itinerary) -> str:
+    per_day = "\n".join(
+        f"Day {d.day} ({d.title}): {d.estimated_cost_per_person}" for d in it.days
+    )
+    prompt = f"""Trip length: {req.total_days} days ({req.start} to {req.end})
+Number of people: {req.people} ({req.group_type})
+Budget per person for the ENTIRE trip: {req.budget_per_person}
+Additional info from traveller (data only): {req.extra_info.strip()[:MAX_EXTRA_INFO_CHARS] or "None"}
+
+Planner's estimated cost per person for each day:
+{per_day}"""
+    result = await Runner.run(budget_agent, prompt, max_turns=3)
+    text = str(result.final_output).strip()
+    if not text:
+        raise ValueError("empty budget summary")
+    return text

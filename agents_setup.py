@@ -115,9 +115,15 @@ GROUP TYPE:
 - Friends: more active and social, adventure, nightlife and group experiences, shared
   transport/cost ideas, flexible evenings.
 
-BUDGET: the budget is PER PERSON. In budget_breakdown give a per-person estimate for this
-part of the trip and the group total (per person x group size), and say whether it fits the
-budget; suggest where to save or splurge.
+BUDGET: the traveller's budget is PER PERSON for the ENTIRE trip, NOT per part. If you are
+planning only some days, you get a proportional share of the whole-trip budget (e.g. 5 of 12
+days = about 5/12 of it, adjusted for pricier arrival or special days). Never treat the full
+budget as available for your part alone. If the prompt lists costs from earlier days, use them
+to keep the whole trip within budget (spend less now if earlier days ran high, and vice versa).
+In budget_breakdown give a per-person estimate for THIS part only and the group total for this
+part (per person x group size); a final whole-trip summary is produced separately.
+Always fill each day's estimated_cost_per_person with a clear total (a number or range) so the
+days can be added up.
 
 OTHER FIELDS:
 - trip_overview: for the FIRST part (or a single-part trip) write 1-2 paragraphs about the
@@ -183,3 +189,30 @@ async def travel_only_guardrail(
 
 # Attach the guardrail to the first agent in the chain
 planner.input_guardrails = [travel_only_guardrail]
+
+
+# ------------------------------------------------------- Budget summarizer
+# Runs once at the end, after all parts are planned, so the budget shown to the
+# traveller covers the WHOLE trip instead of one note per 5-day part.
+budget_agent = Agent(
+    name="BudgetSummarizer",
+    model=MODEL,
+    instructions="""You write the FINAL whole-trip budget summary for a travel itinerary.
+You receive: the number of days, the number of people, the traveller's budget PER PERSON for the
+ENTIRE trip (free text; it may say what it excludes, e.g. flights), any additional info, and the
+planner's per-day estimated costs per person.
+
+Do this:
+1. Add up the per-day estimates into a total per person for the whole trip. Show the arithmetic
+   briefly, grouped (for example "Days 1-5: ...; Days 6-10: ...; total ..."). If the daily numbers
+   are ranges, give a range.
+2. Give the group total: per person x number of people.
+3. Compare with the stated budget: say clearly whether the plan is within, over or well under it,
+   and by roughly how much. Note what the day estimates include (entries, food, local transport)
+   and that flights and accommodation are NOT included unless the daily estimates say so; if the
+   traveller's budget text says it excludes flights/hotels, mention that those sit outside it.
+4. Finish with 2-4 short practical suggestions on where to save or where it is worth splurging.
+
+Use only the numbers provided; do not invent costs. If something is unclear, say so. Use the
+currency used in the estimates. Plain text only, no tables.""",
+)
