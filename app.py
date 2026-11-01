@@ -75,12 +75,25 @@ def _client_id(request: gr.Request | None) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _parse_dates(start: str, end: str):
+def _to_date(value, label: str) -> date:
+    """Accept what the calendar gives us (or text typed by hand)."""
+    if value in (None, ""):
+        raise ValueError(f"Please pick a {label}.")
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value).date()
     try:
-        s = datetime.strptime(start.strip(), "%Y-%m-%d").date()
-        e = datetime.strptime(end.strip(), "%Y-%m-%d").date()
+        return datetime.strptime(str(value).strip()[:10], "%Y-%m-%d").date()
     except ValueError:
-        raise ValueError("Dates must be in YYYY-MM-DD format, e.g. 2026-12-20.")
+        raise ValueError(f"The {label} isn't a valid date. Use the calendar icon to pick one.")
+
+
+def _parse_dates(start, end):
+    s = _to_date(start, "start date")
+    e = _to_date(end, "end date")
     if s < date.today():
         raise ValueError("Start date can't be in the past.")
     if e < s:
@@ -88,6 +101,21 @@ def _parse_dates(start: str, end: str):
     if MAX_TRIP_DAYS and (e - s).days + 1 > MAX_TRIP_DAYS:
         raise ValueError(f"Please keep trips to {MAX_TRIP_DAYS} days or fewer.")
     return s, e
+
+
+def sync_end_date(start, end):
+    """When a start date is picked, make sure the end date isn't empty or before it."""
+    try:
+        s = _to_date(start, "start date")
+    except ValueError:
+        return gr.update()
+    try:
+        e = _to_date(end, "end date")
+        if e >= s:
+            return gr.update()  # end is already fine: leave it alone
+    except ValueError:
+        pass
+    return gr.update(value=s.isoformat())
 
 
 def _out(status="", md="", file_path=None, popup=""):
@@ -171,8 +199,10 @@ with gr.Blocks(title="AI Travel Planner") as demo:
     with gr.Row():
         destination = gr.Textbox(label="Destination", placeholder="Jaipur")
     with gr.Row():
-        start = gr.Textbox(label="Start date (YYYY-MM-DD)")
-        end = gr.Textbox(label="End date (YYYY-MM-DD)")
+        start = gr.DateTime(label="Start date", include_time=False, type="string",
+                            info="Click the calendar icon to pick a date")
+        end = gr.DateTime(label="End date", include_time=False, type="string",
+                          info="Last day of the trip")
     with gr.Row():
         people = gr.Number(label="Number of people", value=2, precision=0, minimum=1, maximum=MAX_PEOPLE)
         group_type = gr.Radio(["Family", "Friends"], value="Family", label="Travelling as")
@@ -191,6 +221,8 @@ with gr.Blocks(title="AI Travel Planner") as demo:
     itinerary_md = gr.Markdown()
     download = gr.File(label="Download itinerary (PDF)", visible=False)
     popup = gr.HTML(elem_id="overlay")  # fixed-position popup; empty when idle
+
+    start.change(sync_end_date, [start, end], end, show_progress="hidden")
 
     btn.click(
         plan,
